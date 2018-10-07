@@ -15,20 +15,44 @@
  */
 package com.stehno.ersatz.impl
 
-import com.stehno.ersatz.*
+import com.stehno.ersatz.ClientRequest
+import com.stehno.ersatz.Cookie
+import com.stehno.ersatz.CookieMatcher
+import com.stehno.ersatz.HttpMethod
+import com.stehno.ersatz.Request
+import com.stehno.ersatz.Response
+import com.stehno.ersatz.ResponseEncoders
 import org.hamcrest.Matcher
 import org.hamcrest.StringDescription
 
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 
-import static com.stehno.ersatz.HttpMethod.*
-import static org.hamcrest.Matchers.*
+import static com.stehno.ersatz.HttpMethod.ANY
+import static com.stehno.ersatz.HttpMethod.DELETE
+import static com.stehno.ersatz.HttpMethod.GET
+import static com.stehno.ersatz.HttpMethod.HEAD
+import static com.stehno.ersatz.HttpMethod.OPTIONS
+import static com.stehno.ersatz.HttpMethod.PATCH
+import static com.stehno.ersatz.HttpMethod.POST
+import static com.stehno.ersatz.HttpMethod.PUT
+import static com.stehno.ersatz.HttpMethod.TRACE
+import static java.util.concurrent.TimeUnit.SECONDS
+import static org.hamcrest.Matchers.anything
+import static org.hamcrest.Matchers.contains
+import static org.hamcrest.Matchers.containsInAnyOrder
+import static org.hamcrest.Matchers.equalTo
+import static org.hamcrest.Matchers.equalToIgnoringCase
+import static org.hamcrest.Matchers.hasItem
+import static org.hamcrest.Matchers.isOneOf
 
 /**
  * <code>Request</code> implementation representing requests without body content.
  */
 class ErsatzRequest implements Request {
 
+    private final CountDownLatch requestLatch = new CountDownLatch(1)
     private final List<RequestMatcher> matchers = []
     private final List<Consumer<ClientRequest>> listeners = []
     private final List<Response> responses = []
@@ -138,6 +162,7 @@ class ErsatzRequest implements Request {
     Response responds() {
         Response response = newResponse()
         responses.add(response)
+        requestLatch.countDown()
         response
     }
 
@@ -146,6 +171,7 @@ class ErsatzRequest implements Request {
         Response response = newResponse()
         responder.accept(response)
         responses.add(response)
+        requestLatch.countDown()
         this
     }
 
@@ -156,6 +182,7 @@ class ErsatzRequest implements Request {
         closure.call()
 
         responses.add(response)
+        requestLatch.countDown()
 
         this
     }
@@ -183,8 +210,8 @@ class ErsatzRequest implements Request {
      *
      * @return true if the call count matches the expected verification criteria
      */
-    boolean verify() {
-        callVerifier.matches(callCount)
+    boolean verify(final long timeout = 1, final TimeUnit unit = SECONDS) {
+        requestLatch.await(timeout, unit) && callVerifier.matches(callCount)
     }
 
     /**

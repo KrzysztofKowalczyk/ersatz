@@ -354,7 +354,7 @@ class ExpectationsImpl implements Expectations {
      */
     boolean verify(final long timeout = 1, final TimeUnit unit = SECONDS) {
         requests.each { r ->
-            assert ((ErsatzRequest) r).verify(), "Expectations for $r were not met."
+            assert ((ErsatzRequest) r).verify(timeout, unit), "Expectations for $r were not met."
         }
         webSockets.each { p, w ->
             assert ((WebSocketExpectationsImpl) w).verify(timeout, unit), "WebSocket expectations for $w were not met."

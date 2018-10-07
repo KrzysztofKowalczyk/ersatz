@@ -16,6 +16,8 @@
 package com.stehno.ersatz
 
 import groovy.transform.TupleConstructor
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import org.apache.commons.fileupload.FileItem
@@ -40,6 +42,7 @@ import static com.stehno.ersatz.HttpMethod.DELETE
 import static com.stehno.ersatz.HttpMethod.GET
 import static com.stehno.ersatz.HttpMethod.OPTIONS
 import static com.stehno.ersatz.HttpMethod.POST
+import static java.util.concurrent.TimeUnit.SECONDS
 import static okhttp3.MediaType.parse
 import static okhttp3.RequestBody.create
 import static org.hamcrest.Matchers.greaterThanOrEqualTo
@@ -557,6 +560,36 @@ class ErsatzServerSpec extends Specification {
 
         then:
         response.code() == 201
+    }
+
+    def 'async request'(){
+        setup:
+        ersatzServer.expectations {
+            get('/slowasync'){
+                responder {
+                    delay 1, SECONDS
+                    code 200
+                    content('OK', TEXT_PLAIN)
+                }
+            }
+        }
+
+        when:
+        def request = new okhttp3.Request.Builder().url(url('/slowasync')).get().build()
+
+        then:
+        client.newCall(request).enqueue(new Callback() {
+            @Override void onFailure(Call call, IOException e) {
+                e.printStackTrace()
+            }
+
+            @Override void onResponse(Call call, okhttp3.Response response) throws IOException {
+                assert response.body().string() == 'OK'
+            }
+        })
+
+        and:
+        ersatzServer.verify(2)
     }
 
     private String url(final String path) {

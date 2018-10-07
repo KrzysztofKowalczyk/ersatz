@@ -72,7 +72,7 @@ class LargeFileUploadSpec extends Specification {
         response.body().string() == 'OK'
 
         and:
-        server.verify()
+        server.verify(5, MINUTES)
     }
 }
 
@@ -106,6 +106,6 @@ class LargeFileDownloadSpec extends Specification {
         response.body()
 
         and:
-        server.verify()
+        server.verify(1, MINUTES)
     }
 }

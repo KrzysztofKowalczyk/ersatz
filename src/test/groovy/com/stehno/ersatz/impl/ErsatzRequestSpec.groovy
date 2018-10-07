@@ -16,7 +16,6 @@
 package com.stehno.ersatz.impl
 
 import com.stehno.ersatz.ClientRequest
-import com.stehno.ersatz.ContentType
 import com.stehno.ersatz.ErsatzServer
 import com.stehno.ersatz.InMemoryCookieJar
 import com.stehno.ersatz.Response
@@ -32,7 +31,6 @@ import spock.lang.Unroll
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
-import static com.stehno.ersatz.ContentType.TEXT_PLAIN
 import static com.stehno.ersatz.Cookie.cookie
 import static com.stehno.ersatz.CookieMatcher.cookieMatcher
 import static com.stehno.ersatz.ErsatzServer.NOT_FOUND_BODY
@@ -268,7 +266,7 @@ class ErsatzRequestSpec extends Specification {
 
     @Unroll 'called #calls expected #expected'() {
         setup:
-        request.called(equalTo(expected))
+        request.called(equalTo(expected)).responds()
 
         when:
         calls.times {

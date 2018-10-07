@@ -15,13 +15,24 @@
  */
 package com.stehno.ersatz.impl
 
-import com.stehno.ersatz.*
+
+import com.stehno.ersatz.ClientRequest
+import com.stehno.ersatz.Request
+import com.stehno.ersatz.RequestDecoders
+import com.stehno.ersatz.RequestWithContent
+import com.stehno.ersatz.ResponseEncoders
 import spock.lang.Specification
 import spock.lang.Unroll
 
 import java.util.function.Consumer
 
-import static com.stehno.ersatz.HttpMethod.*
+import static com.stehno.ersatz.HttpMethod.DELETE
+import static com.stehno.ersatz.HttpMethod.GET
+import static com.stehno.ersatz.HttpMethod.HEAD
+import static com.stehno.ersatz.HttpMethod.OPTIONS
+import static com.stehno.ersatz.HttpMethod.PATCH
+import static com.stehno.ersatz.HttpMethod.POST
+import static com.stehno.ersatz.HttpMethod.PUT
 import static org.hamcrest.Matchers.equalTo
 
 class ExpectationsImplSpec extends Specification {
@@ -180,6 +191,7 @@ class ExpectationsImplSpec extends Specification {
     def 'verification (success)'() {
         setup:
         RequestWithContent req = expectations.post('/alpha').called(equalTo(1))
+        req.responds()
         ((ErsatzRequestWithContent) req).mark(new MockClientRequest())
 
         expect:
@@ -188,7 +200,7 @@ class ExpectationsImplSpec extends Specification {
 
     def 'verification (failure)'() {
         setup:
-        expectations.post('/alpha').called(equalTo(1))
+        expectations.post('/alpha').called(equalTo(1)).responds()
 
         when:
         expectations.verify()
@@ -196,7 +208,7 @@ class ExpectationsImplSpec extends Specification {
         then:
         def ae = thrown(AssertionError)
         ae.message == 'Expectations for Expectations (ErsatzRequestWithContent): <POST>, "/alpha",  were not met.. ' +
-            'Expression: (com.stehno.ersatz.impl.ErsatzRequest -> com.stehno.ersatz.impl.ErsatzRequest) r.verify()'
+            'Expression: (com.stehno.ersatz.impl.ErsatzRequest -> com.stehno.ersatz.impl.ErsatzRequest) r.verify(timeout, unit)'
     }
 
     @Unroll 'wildcard path (#path)'() {

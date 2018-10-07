@@ -18,13 +18,16 @@ package com.stehno.ersatz
 import com.stehno.ersatz.auth.BasicAuthHandler
 import com.stehno.ersatz.auth.DigestAuthHandler
 import com.stehno.ersatz.auth.SimpleIdentityManager
-import com.stehno.ersatz.impl.*
+import com.stehno.ersatz.impl.ErsatzRequest
+import com.stehno.ersatz.impl.ExpectationsImpl
+import com.stehno.ersatz.impl.UndertowClientRequest
+import com.stehno.ersatz.impl.UnmatchedRequestReport
+import com.stehno.ersatz.impl.WebSocketsHandlerBuilder
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.undertow.Undertow
 import io.undertow.server.HttpHandler
 import io.undertow.server.HttpServerExchange
-import io.undertow.server.handlers.BlockingHandler
 import io.undertow.server.handlers.CookieImpl
 import io.undertow.server.handlers.HttpTraceHandler
 import io.undertow.server.handlers.encoding.ContentEncodingRepository
@@ -45,8 +48,8 @@ import static io.undertow.UndertowOptions.IDLE_TIMEOUT
 import static io.undertow.UndertowOptions.REQUEST_PARSE_TIMEOUT
 import static io.undertow.util.HttpString.tryFromString
 import static java.util.concurrent.TimeUnit.MILLISECONDS
+import static java.util.concurrent.TimeUnit.MINUTES
 import static java.util.concurrent.TimeUnit.SECONDS
-
 /**
  * The main entry point for configuring an Ersatz server, which allows configuring of the expectations and management of the server itself. This is
  * the class that should be instantiated in unit tests.
@@ -380,11 +383,14 @@ class ErsatzServer implements ServerConfig, Closeable {
             Undertow.Builder builder = Undertow.builder().addHttpListener(EPHEMERAL_PORT, LOCALHOST)
             timeoutConfig.call(builder)
 
+            // FIXME: this will probably need to be exposed
+            builder.setServerOption(IDLE_TIMEOUT, MILLISECONDS.convert(10, MINUTES) as int)
+
             if (httpsEnabled) {
                 builder.addHttpsListener(EPHEMERAL_PORT, LOCALHOST, sslContext())
             }
 
-            BlockingHandler blockingHandler = new BlockingHandler(new EncodingHandler(
+            HttpHandler handler = new EncodingHandler(
                 applyAuthentication(
                     new HttpTraceHandler(
                         new HttpHandler() {
@@ -421,9 +427,9 @@ class ErsatzServer implements ServerConfig, Closeable {
                 new ContentEncodingRepository()
                     .addEncodingHandler('gzip', new GzipEncodingProvider(), 50)
                     .addEncodingHandler('deflate', new DeflateEncodingProvider(), 50)
-            ))
+            )
 
-            WebSocketsHandlerBuilder wsBuilder = new WebSocketsHandlerBuilder(expectations, blockingHandler, mismatchToConsole)
+            WebSocketsHandlerBuilder wsBuilder = new WebSocketsHandlerBuilder(expectations, handler, mismatchToConsole)
 
             server = builder.setHandler(wsBuilder.build()).build()
             server.start()
