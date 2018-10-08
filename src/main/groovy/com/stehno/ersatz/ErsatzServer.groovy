@@ -18,16 +18,13 @@ package com.stehno.ersatz
 import com.stehno.ersatz.auth.BasicAuthHandler
 import com.stehno.ersatz.auth.DigestAuthHandler
 import com.stehno.ersatz.auth.SimpleIdentityManager
-import com.stehno.ersatz.impl.ErsatzRequest
-import com.stehno.ersatz.impl.ExpectationsImpl
-import com.stehno.ersatz.impl.UndertowClientRequest
-import com.stehno.ersatz.impl.UnmatchedRequestReport
-import com.stehno.ersatz.impl.WebSocketsHandlerBuilder
+import com.stehno.ersatz.impl.*
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import io.undertow.Undertow
 import io.undertow.server.HttpHandler
 import io.undertow.server.HttpServerExchange
+import io.undertow.server.handlers.BlockingHandler
 import io.undertow.server.handlers.CookieImpl
 import io.undertow.server.handlers.HttpTraceHandler
 import io.undertow.server.handlers.encoding.ContentEncodingRepository
@@ -47,9 +44,8 @@ import static groovy.transform.TypeCheckingMode.SKIP
 import static io.undertow.UndertowOptions.IDLE_TIMEOUT
 import static io.undertow.UndertowOptions.REQUEST_PARSE_TIMEOUT
 import static io.undertow.util.HttpString.tryFromString
-import static java.util.concurrent.TimeUnit.MILLISECONDS
-import static java.util.concurrent.TimeUnit.MINUTES
-import static java.util.concurrent.TimeUnit.SECONDS
+import static java.util.concurrent.TimeUnit.*
+
 /**
  * The main entry point for configuring an Ersatz server, which allows configuring of the expectations and management of the server itself. This is
  * the class that should be instantiated in unit tests.
@@ -90,6 +86,7 @@ class ErsatzServer implements ServerConfig, Closeable {
     private boolean autoStartEnabled = true
     private boolean started
     private boolean mismatchToConsole
+    private boolean useAsyncRequests
     private URL keystoreLocation
     private String keystorePass = 'ersatz'
     private int actualHttpPort = UNSPECIFIED_PORT
@@ -107,6 +104,12 @@ class ErsatzServer implements ServerConfig, Closeable {
             closure.delegate = this
             closure.call()
         }
+    }
+
+    @Override
+    ServerConfig asyncRequests(boolean enabled=true) {
+        this.useAsyncRequests = enabled
+        this
     }
 
     /**
@@ -429,6 +432,10 @@ class ErsatzServer implements ServerConfig, Closeable {
                     .addEncodingHandler('deflate', new DeflateEncodingProvider(), 50)
             )
 
+            if (!useAsyncRequests) {
+                handler = new BlockingHandler(handler)
+            }
+
             WebSocketsHandlerBuilder wsBuilder = new WebSocketsHandlerBuilder(expectations, handler, mismatchToConsole)
 
             server = builder.setHandler(wsBuilder.build()).build()
@@ -465,22 +472,22 @@ class ErsatzServer implements ServerConfig, Closeable {
      * An alias to the <code>stop()</code> method.
      */
     @Override
-    void close(){
+    void close() {
         stop()
     }
 
 /**
-     * Used to verify that all of the expected request interactions were called the appropriate number of times. This method should be called after
-     * all test interactions have been performed. This is an optional step since generally you will also be receiving the expected response back
-     * from the server; however, this verification step can come in handy when simply needing to know that a request is actually called or not.
-     *
-     * If there are web socket expectations configured, this method will be blocking against the expected operations. Expectations involving web
-     * sockets should consider using the timeout parameters - the default is 1s.
-     *
-     * @param timeout the timeout value (defaults to 1)
-     * @param unit the timeout unit (defaults to SECONDS)
-     * @return <code>true</code> if all call criteria were met during test execution.
-     */
+ * Used to verify that all of the expected request interactions were called the appropriate number of times. This method should be called after
+ * all test interactions have been performed. This is an optional step since generally you will also be receiving the expected response back
+ * from the server; however, this verification step can come in handy when simply needing to know that a request is actually called or not.
+ *
+ * If there are web socket expectations configured, this method will be blocking against the expected operations. Expectations involving web
+ * sockets should consider using the timeout parameters - the default is 1s.
+ *
+ * @param timeout the timeout value (defaults to 1)
+ * @param unit the timeout unit (defaults to SECONDS)
+ * @return <code>true</code> if all call criteria were met during test execution.
+ */
     boolean verify(final long timeout = 1, final TimeUnit unit = SECONDS) {
         expectations.verify(timeout, unit)
     }

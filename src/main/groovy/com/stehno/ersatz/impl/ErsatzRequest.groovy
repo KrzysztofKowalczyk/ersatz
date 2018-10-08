@@ -52,7 +52,7 @@ import static org.hamcrest.Matchers.isOneOf
  */
 class ErsatzRequest implements Request {
 
-    private final CountDownLatch requestLatch = new CountDownLatch(1)
+    private CountDownLatch requestLatch
     private final List<RequestMatcher> matchers = []
     private final List<Consumer<ClientRequest>> listeners = []
     private final List<Response> responses = []
@@ -162,7 +162,7 @@ class ErsatzRequest implements Request {
     Response responds() {
         Response response = newResponse()
         responses.add(response)
-        requestLatch.countDown()
+        requestLatch?.countDown()
         response
     }
 
@@ -171,7 +171,7 @@ class ErsatzRequest implements Request {
         Response response = newResponse()
         responder.accept(response)
         responses.add(response)
-        requestLatch.countDown()
+        requestLatch?.countDown()
         this
     }
 
@@ -182,7 +182,7 @@ class ErsatzRequest implements Request {
         closure.call()
 
         responses.add(response)
-        requestLatch.countDown()
+        requestLatch?.countDown()
 
         this
     }
@@ -190,6 +190,7 @@ class ErsatzRequest implements Request {
     @Override @SuppressWarnings('ConfusingMethodName')
     Request called(final Matcher<Integer> callVerifier) {
         this.callVerifier = callVerifier
+        this.requestLatch = new CountDownLatch(1)
         this
     }
 

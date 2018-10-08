@@ -29,6 +29,29 @@ import java.util.function.Function
 interface ServerConfig {
 
     /**
+     * Used to enable/disable the async request support on the server. When async requests are enabled, the
+     * <code>called(...)</code> expectation should be specified and the verify method calls should be sure
+     * to include a timeout.
+     *
+     * If not explicitly configured, the server will NOT use async requests.
+     *
+     * @param enabled the specified state of the property
+     * @return a reference to the server being configured
+     */
+    ServerConfig asyncRequests(boolean enabled)
+
+    /**
+     * Used to enable the async request support on the server. When async requests are enabled, the
+     * <code>called(...)</code> expectation should be specified and the verify method calls should be sure
+     * to include a timeout.
+     *
+     * If not explicitly configured, the server will NOT use async requests.
+     *
+     * @return a reference to the server being configured
+     */
+    ServerConfig asyncRequests()
+
+    /**
      * Used to control the enabled/disabled state of HTTPS on the server. By default HTTPS is disabled.
      *
      * @return a reference to the server being configured

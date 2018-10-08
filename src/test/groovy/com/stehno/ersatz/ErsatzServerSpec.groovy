@@ -29,19 +29,14 @@ import spock.lang.AutoCleanup
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
 import static MultipartResponseContent.multipart
-import static com.stehno.ersatz.ContentType.APPLICATION_URLENCODED
-import static com.stehno.ersatz.ContentType.MESSAGE_HTTP
-import static com.stehno.ersatz.ContentType.MULTIPART_MIXED
-import static com.stehno.ersatz.ContentType.TEXT_PLAIN
+import static com.stehno.ersatz.ContentType.*
 import static com.stehno.ersatz.CookieMatcher.cookieMatcher
-import static com.stehno.ersatz.HttpMethod.DELETE
-import static com.stehno.ersatz.HttpMethod.GET
-import static com.stehno.ersatz.HttpMethod.OPTIONS
-import static com.stehno.ersatz.HttpMethod.POST
+import static com.stehno.ersatz.HttpMethod.*
 import static java.util.concurrent.TimeUnit.SECONDS
 import static okhttp3.MediaType.parse
 import static okhttp3.RequestBody.create
@@ -562,10 +557,13 @@ class ErsatzServerSpec extends Specification {
         response.code() == 201
     }
 
-    def 'async request'(){
+    def 'async request'() {
         setup:
-        ersatzServer.expectations {
-            get('/slowasync'){
+        ErsatzServer asyncServer = new ErsatzServer({
+            asyncRequests()
+        }).expectations {
+            get('/slowasync') {
+                called 1
                 responder {
                     delay 1, SECONDS
                     code 200
@@ -575,21 +573,26 @@ class ErsatzServerSpec extends Specification {
         }
 
         when:
-        def request = new okhttp3.Request.Builder().url(url('/slowasync')).get().build()
+        CountDownLatch latch = new CountDownLatch(1)
+        String responseValue = null
 
-        then:
-        client.newCall(request).enqueue(new Callback() {
+        client.newCall(new okhttp3.Request.Builder().url("http://localhost:${asyncServer.httpPort}/slowasync").get().build()).enqueue(new Callback() {
             @Override void onFailure(Call call, IOException e) {
-                e.printStackTrace()
+                latch.countDown()
             }
 
             @Override void onResponse(Call call, okhttp3.Response response) throws IOException {
-                assert response.body().string() == 'OK'
+                responseValue = response.body().string()
+                latch.countDown()
             }
         })
 
+        then:
+        latch.await(10, SECONDS)
+        responseValue == 'OK'
+
         and:
-        ersatzServer.verify(2)
+        asyncServer.verify(2)
     }
 
     private String url(final String path) {
